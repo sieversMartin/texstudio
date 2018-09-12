@@ -22,7 +22,7 @@ POPPLERDATA_SHA256="1096a18161f263cccdc6d8a2eb5548c41ff8fcf9a3609243f1b6296abdf7
 
 # Gather information
 
-# GNU extensions for sed are not supported; on Linux, --posix mimicks this behaviour
+# GNU extensions for sed are not supported; on Linux, --posix mimics this behaviour
 TXS_VERSION=$(sed -ne 's/^#define TXSVERSION "\(.*\)".*$/\1/p' src/utilsVersion.h)
 echo "TXS_VERSION = ${TXS_VERSION}"
 
@@ -82,6 +82,46 @@ EOF
 cat "${TRAVIS_BUILD_DIR}/travis-ci/bintray.json"
 fi
 
+
+if [ "${QT}" = "qt5Release" ]; then
+	print_info "Running linuxdeployqt"
+
+	make INSTALL_ROOT=appdir -j$(nproc) install ; find appdir/
+	wget -c -nv "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+	chmod a+x linuxdeployqt-continuous-x86_64.AppImage
+	unset QTDIR; unset QT_PLUGIN_PATH ; unset LD_LIBRARY_PATH
+	export VERSION=${TRAVIS_OS_NAME}-${VERSION_NAME}
+	./linuxdeployqt-continuous-x86_64.AppImage appdir/usr/share/applications/*.desktop -bundle-non-qt-libs -extra-plugins=iconengines/libqsvgicon.so
+	./linuxdeployqt-continuous-x86_64.AppImage appdir/usr/share/applications/*.desktop -appimage
+	cp "${TRAVIS_BUILD_DIR}/TeXstudio-${VERSION}-x86_64.AppImage" "texstudio-${VERSION}-x86_64.AppImage"
+	cp "${TRAVIS_BUILD_DIR}/TeXstudio-${VERSION}-x86_64.AppImage" "texstudio-${TRAVIS_TAG}-x86_64.AppImage"
+
+
+	print_info "Preparing bintray.json"
+	cat > "${TRAVIS_BUILD_DIR}/travis-ci/bintray.json" <<EOF
+	{
+		"package": {
+			"name": "texstudio-linux",
+			"repo": "texstudio",
+			"subject": "sunderme"
+		},
+
+		"version": {
+			"name": "${VERSION_NAME}",
+			"released": "${RELEASE_DATE}",
+			"gpgSign": false
+		},
+		"files":
+		[
+			{"includePattern": "${TRAVIS_BUILD_DIR}/texstudio-${VERSION}-x86_64.AppImage", "uploadPattern": "texstudio-${VERSION}-x86_64.AppImage"}
+		],
+		"publish": true
+	}
+EOF
+
+cat "${TRAVIS_BUILD_DIR}/travis-ci/bintray.json"
+fi
+
 if [ "${QT}" = "qt5win" ]; then
 	print_info "package build into zip for win"
 	print_info "make installer"
@@ -112,6 +152,7 @@ if [ "${QT}" = "qt5win" ]; then
 	print_info "zipping '${TRAVIS_BUILD_DIR}/texstudio-${TARGET_OS}-${VERSION_NAME}.zip'"
 	echo_and_run "cd package-zip && zip -r \"${TRAVIS_BUILD_DIR}/texstudio-win-${VERSION_NAME}.zip\" *"
 	echo_and_run "cp \"${TRAVIS_BUILD_DIR}/texstudio-win-${VERSION_NAME}.zip\" \"${TRAVIS_BUILD_DIR}/texstudio-${TRAVIS_TAG}-win-portable-qt5.zip\" "
+	echo_and_run "cp \"${TRAVIS_BUILD_DIR}/texstudio_installer.exe\" \"${TRAVIS_BUILD_DIR}/texstudio-${TRAVIS_TAG}-win-qt5.exe\" "
 
 	print_info "Preparing bintray.json"
 	cat > "${TRAVIS_BUILD_DIR}/travis-ci/bintray.json" <<EOF

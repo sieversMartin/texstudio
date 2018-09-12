@@ -6,6 +6,7 @@
 #include "smallUsefulFunctions.h"
 
 #include "qdocumentline.h"
+#include "qdocument_p.h"
 #include "qeditorinputbinding.h"
 #include "qformatfactory.h"
 #include "qdocumentline_p.h"
@@ -20,7 +21,7 @@
 class CompleterInputBinding: public QEditorInputBinding
 {
 public:
-	CompleterInputBinding(): active(0), showAlways(false), showMostUsed(0), completer(0), editor(0), oldBinding(0), curStart(0), maxWritten(0), curLineNumber(0) {}
+    CompleterInputBinding(): active(0), showAlways(false), showMostUsed(0), completer(nullptr), editor(nullptr), oldBinding(nullptr), curStart(0), maxWritten(0), curLineNumber(0) {}
 	virtual QString id() const
 	{
 		return "TXS::CompleterInputBinding";
@@ -62,10 +63,10 @@ public:
 	{
 		if (!editor) return;
 		maxWritten += text.length();
-		if ( editor->currentPlaceHolder() >= 0 && editor->currentPlaceHolder() < editor->placeHolderCount() )
-			editor->document()->beginMacro();
-		editor->cursor().insertText(text);
-		//cursor mirrors
+        if ( editor->currentPlaceHolder() >= 0 && editor->currentPlaceHolder() < editor->placeHolderCount() )
+            editor->document()->beginMacro();
+        editor->write(text);
+        //cursor mirrors
 		if ( editor->currentPlaceHolder() >= 0 && editor->currentPlaceHolder() < editor->placeHolderCount() ) {
 			PlaceHolder ph = editor->getPlaceHolder(editor->currentPlaceHolder());
 
@@ -77,7 +78,7 @@ public:
 				ph.mirrors[phm].replaceSelectedText(baseText);
 			}
 			editor->document()->endMacro();
-		}
+        }
 		//end cursor mirrors
 		if (editor->cursor().columnNumber() > curStart + 1 && !completer->isVisible()) {
 			QString wrd = getCurWord();
@@ -170,7 +171,13 @@ public:
 			//cursor.endEditBlock(); //doesn't work and lead to crash when auto indentation is enabled => TODO:figure out why
 			//  cursor.setColumnNumber(curStart);
 			CodeSnippet::PlaceholderMode phMode = (LatexCompleter::config && LatexCompleter::config->usePlaceholders) ? CodeSnippet::PlacehodersActive : CodeSnippet::PlaceholdersRemoved;
-            if(cw.lines.size()==1 && completer->latexParser.possibleCommands["math"].contains(cw.word)){
+            QString cwCmd=cw.word;
+            QRegExp rx("\\\\[a-zA-Z]+");
+            int pos=rx.indexIn(cwCmd);
+            if(pos>-1){
+                cwCmd=rx.cap(0);
+            }
+            if(cw.lines.size()==1 && completer->latexParser.possibleCommands["math"].contains(cwCmd)){
                 LatexEditorView *view = editor->property("latexEditor").value<LatexEditorView *>();
                 Q_ASSERT(view);
                 bool inMath=view->isInMathHighlighting(cursor);
@@ -178,6 +185,14 @@ public:
                     // add $$ to mathcommand outsiode math env
                     cw.lines.first().prepend("$");
                     cw.lines.first().append("$");
+                    // move cursors
+                    if(cw.cursorOffset>-1) cw.cursorOffset++;
+                    if(cw.anchorOffset>-1) cw.anchorOffset++;
+                    for(int i=0;i<cw.placeHolders.size();i++){
+                        for(int j=0;j<cw.placeHolders[i].size();j++){
+                            cw.placeHolders[i][j].offset++;
+                        }
+                    }
                 }
             }
 			cw.insertAt(editor, &cursor, phMode, !completer->startedFromTriggerKey, completer->forcedKeyval);
@@ -298,11 +313,13 @@ public:
 		bool handled = false;
 		if (event->key() == Qt::Key_Backspace) {
 			maxWritten--;
-			editor->cursor().deletePreviousChar();
-			if (editor->cursor().columnNumber() <= curStart) {
+            QDocumentCursorHandle *dch=editor->cursorHandle();
+            Q_ASSERT(dch);
+            dch->deletePreviousChar();
+            if (dch->columnNumber() <= curStart) {
 				resetBinding();
 				return true;
-			} else if (editor->cursor().columnNumber() + 1 <= curStart && !showAlways) {
+            } else if (dch->columnNumber() + 1 <= curStart && !showAlways) {
 				completer->widget->hide();
 				return true;
 			}
@@ -638,7 +655,7 @@ public:
 		active = true;
 		completer = caller;
 		editor = edit;
-		oldBinding = (editor->inputBindings().count() > 0 ? editor->inputBindings()[0] : 0);
+        oldBinding = (editor->inputBindings().count() > 0 ? editor->inputBindings()[0] : nullptr);
 		editor->setInputBinding(this);
 		curStart = start > 0 ? start : 0;
 		maxWritten = editor->cursor().columnNumber();
@@ -677,7 +694,7 @@ CompleterInputBinding *completerInputBinding = new CompleterInputBinding();
 class CompletionItemDelegate: public QItemDelegate
 {
 public:
-	CompletionItemDelegate(QObject *parent = 0): QItemDelegate(parent)
+    CompletionItemDelegate(QObject *parent = nullptr): QItemDelegate(parent)
 	{
 	}
 
@@ -738,7 +755,7 @@ public:
 
 
 //----------------------------list model------------------------------------
-LatexCompleterConfig *CompletionListModel::config = 0;
+LatexCompleterConfig *CompletionListModel::config = nullptr;
 int CompletionListModel::rowCount(const QModelIndex &parent) const
 {
 	Q_UNUSED(parent);
@@ -947,29 +964,35 @@ void CompletionListModel::filterList(const QString &word, int mostUsed, bool fet
 						words.append(cw);
 				} else {
 					// cite command
-					if (it->word.contains('@')) {
-						QString ln = it->lines[0];
-						ln.replace('@', "%<bibid%>");
-						words.append(CompletionWord(ln));
-						cnt++;
-						foreach (const CompletionWord id, wordsCitations) {
-							CompletionWord cw = *it;
-							int index = cw.lines[0].indexOf("@");
-							cw.word.replace("@", id.word);
-							cw.sortWord.replace("@", id.word);
-							cw.lines[0].replace("@", id.word);
-							for (int i = 0; i < cw.placeHolders.count(); i++) {
-								if (cw.placeHolders[i].isEmpty())
-									continue;
-								for (int j = 0; j < cw.placeHolders[i].count(); j++) {
-									CodeSnippetPlaceHolder &ph = cw.placeHolders[i][j];
-									if (ph.offset > index)
-										ph.offset += id.word.length() - 1;
-								}
-							}
-							words.append(cw);
-						}
-						cnt += wordsCitations.length();
+                    if (it->word.contains('@')) {
+                        if(it->word.contains("@@")){ // special treatment for command-names containing @
+                            QString ln = it->lines[0];
+                            ln.replace("@@", "@");
+                            words.append(CompletionWord(ln));
+                        }else{
+                            QString ln = it->lines[0];
+                            ln.replace('@', "%<bibid%>");
+                            words.append(CompletionWord(ln));
+                            cnt++;
+                            foreach (const CompletionWord id, wordsCitations) {
+                                CompletionWord cw = *it;
+                                int index = cw.lines[0].indexOf("@");
+                                cw.word.replace("@", id.word);
+                                cw.sortWord.replace("@", id.word);
+                                cw.lines[0].replace("@", id.word);
+                                for (int i = 0; i < cw.placeHolders.count(); i++) {
+                                    if (cw.placeHolders[i].isEmpty())
+                                        continue;
+                                    for (int j = 0; j < cw.placeHolders[i].count(); j++) {
+                                        CodeSnippetPlaceHolder &ph = cw.placeHolders[i][j];
+                                        if (ph.offset > index)
+                                            ph.offset += id.word.length() - 1;
+                                    }
+                                }
+                                words.append(cw);
+                            }
+                            cnt += wordsCitations.length();
+                        }
 					} else {
 						words.append(*it);
 					}
@@ -1046,7 +1069,7 @@ void CompletionListModel::incUsage(const QModelIndex &index)
 			for (int j = 0; j < res.size(); ++j) {
 				if (res.at(j).first == curWord.snippetLength) {
 					config->usage.remove(curWord.index, res.at(j));
-					config->usage.insert(curWord.index, qMakePair(curWord.snippetLength, it->usageCount));
+                    config->usage.insert(curWord.index, qMakePair(curWord.snippetLength, it->usageCount));
 					replaced = true;
 					break;
 				}
@@ -1169,15 +1192,15 @@ void CompletionListModel::setConfig(LatexCompleterConfig *newConfig)
 
 
 //------------------------------completer-----------------------------------
-LatexReference *LatexCompleter::latexReference = 0;
-LatexCompleterConfig *LatexCompleter::config = 0;
+LatexReference *LatexCompleter::latexReference = nullptr;
+LatexCompleterConfig *LatexCompleter::config = nullptr;
 
 LatexCompleter::LatexCompleter(const LatexParser &latexParser, QObject *p): QObject(p), latexParser(latexParser), maxWordLen(0), editorAutoCloseChars(false), forcedRef(false),
 	forcedGraphic(false), forcedCite(false), forcedPackage(false), forcedKeyval(false), forcedSpecialOption(false), forcedLength(false), startedFromTriggerKey(false)
 {
 	//   addTrigger("\\");
 	if (!qobject_cast<QWidget *>(parent()))
-		QMessageBox::critical(0, "Serious PROBLEM", QString("The completer has been created without a parent widget. This is impossible!\n") +
+        QMessageBox::critical(nullptr, "Serious PROBLEM", QString("The completer has been created without a parent widget. This is impossible!\n") +
 		                      QString("Please report it ASAP to the bug tracker on texstudio.sf.net and check if your computer is going to explode!\n") +
 		                      QString("(please report the bug *before* going to a safe place, you could rescue others)"), QMessageBox::Ok);
 	list = new QListView(qobject_cast<QWidget *>(parent()));
@@ -1187,11 +1210,11 @@ LatexCompleter::LatexCompleter(const LatexParser &latexParser, QObject *p): QObj
 	list->setFocusPolicy(Qt::NoFocus);
 	list->setItemDelegate(new CompletionItemDelegate(list));
 	list->setAutoFillBackground(true);
-	editor = 0;
+    editor = nullptr;
 	workingDir = "/";
-	dirReader = 0;
-	bibReader = 0;
-	packageList = 0;
+    dirReader = nullptr;
+    bibReader = nullptr;
+    packageList = nullptr;
 	widget = new QWidget(qobject_cast<QWidget *>(parent()));
 	//widget->setAutoFillBackground(true);
 	QVBoxLayout *layout = new QVBoxLayout;
@@ -1766,7 +1789,7 @@ void LatexCompleter::showTooltip(QString text)
 
 void LatexCompleter::editorDestroyed()
 {
-	editor = 0;
+    editor = nullptr;
 }
 
 void LatexCompleter::bibtexSectionFound(QString content)

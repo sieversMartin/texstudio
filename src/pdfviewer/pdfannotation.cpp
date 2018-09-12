@@ -192,6 +192,7 @@ QVariant PDFAnnotationModel::data ( const QModelIndex &index, int role) const
 		case Qt::DisplayRole:
 			return ann->popplerAnnotation()->creationDate().toString(Qt::DefaultLocaleShortDate);
 		}
+        break;
 	case CT_PAGE:
 		switch (role) {
 		case Qt::DisplayRole:
@@ -199,6 +200,7 @@ QVariant PDFAnnotationModel::data ( const QModelIndex &index, int role) const
 		case Qt::TextAlignmentRole:
 			return QVariant(Qt::AlignRight | Qt::AlignVCenter);
 		}
+        break;
 	}
 
 	return QVariant();
@@ -217,7 +219,7 @@ QVariant PDFAnnotationModel::headerData(int section, Qt::Orientation orientation
 
 const PDFAnnotation *PDFAnnotationModel::itemForIndex(const QModelIndex &index) const
 {
-	if (!index.isValid()) return NULL;
+    if (!index.isValid()) return nullptr;
 	return m_annotations->annotation(index.row());
 }
 

@@ -19,7 +19,7 @@
  * \param parent
  */
 SyntaxCheck::SyntaxCheck(QObject *parent) :
-	SafeThread(parent), syntaxErrorFormat(-1), ltxCommands(0), newLtxCommandsAvailable(false)
+    SafeThread(parent), syntaxErrorFormat(-1), ltxCommands(nullptr), newLtxCommandsAvailable(false)
 {
 	mLinesLock.lock();
 	stopped = false;
@@ -144,7 +144,7 @@ void SyntaxCheck::run()
 	}
 
 	delete ltxCommands;
-	ltxCommands = 0;
+    ltxCommands = nullptr;
 }
 
 /*!
@@ -876,6 +876,9 @@ void SyntaxCheck::checkLine(const QString &line, Ranges &newRanges, StackEnviron
 
 		if (tk.type == Token::command) {
 			QString word = line.mid(tk.start, tk.length);
+            if(!tk.optionalCommandName.isEmpty()){
+                word=tk.optionalCommandName;
+            }
 			Token tkEnvName;
 
 			if (word == "\\begin" || word == "\\end") {

@@ -12,7 +12,7 @@ GrammarError::GrammarError(int offset, int length, const GrammarErrorType &error
 GrammarError::GrammarError(int offset, int length, const GrammarError &other): offset(offset), length(length), error(other.error), message(other.message), corrections(other.corrections) {}
 
 GrammarCheck::GrammarCheck(QObject *parent) :
-	QObject(parent), ltstatus(LTS_Unknown), backend(0), ticket(0), pendingProcessing(false), shuttingDown(false)
+    QObject(parent), ltstatus(LTS_Unknown), backend(nullptr), ticket(0), pendingProcessing(false), shuttingDown(false)
 {
 	latexParser = new LatexParser();
 }
@@ -526,7 +526,7 @@ struct CheckRequestBackend {
 	CheckRequestBackend(int ti, int st, const QString &la, const QString &te): ticket(ti), subticket(st), language(la), text(te) {}
 };
 
-GrammarCheckLanguageToolSOAP::GrammarCheckLanguageToolSOAP(QObject *parent): GrammarCheckBackend(parent), nam(0), connectionAvailability(Unknown), triedToStart(false), firstRequest(true)
+GrammarCheckLanguageToolSOAP::GrammarCheckLanguageToolSOAP(QObject *parent): GrammarCheckBackend(parent), nam(nullptr), connectionAvailability(Unknown), triedToStart(false), firstRequest(true)
 {
 
 }
@@ -669,6 +669,7 @@ void GrammarCheckLanguageToolSOAP::check(uint ticket, int subticket, const QStri
 
 	QNetworkRequest req(server);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/xml; charset=UTF-8");
+    req.setRawHeader("User-Agent", QString("texstudio %1").arg(TXSVERSION).toUtf8());
 	QByteArray post;
 	post.reserve(text.length() + 50);
 	post.append("language=" + lang + "&text=");
@@ -697,7 +698,7 @@ void GrammarCheckLanguageToolSOAP::shutdown()
 	connectionAvailability = Terminated;
 	if (nam) {
 		nam->deleteLater();
-		nam = 0;
+        nam = nullptr;
 	}
 }
 /*!
@@ -725,7 +726,7 @@ void GrammarCheckLanguageToolSOAP::finished(QNetworkReply *nreply)
 		if (connectionAvailability == Broken) {
 			if (delayedRequests.size()) delayedRequests.clear();
 			nam->deleteLater(); // shutdown unnecessary network manager (Bug 1717/1738)
-			nam = 0;
+            nam = nullptr;
 			return; //confirmed: no backend
 		}
 		//there might be a backend now, but we still don't have the results
@@ -797,7 +798,7 @@ void GrammarCheckLanguageToolSOAP::finished(QNetworkReply *nreply)
 }
 
 #if QT_VERSION >= 0x050000
-GrammarCheckLanguageToolJSON::GrammarCheckLanguageToolJSON(QObject *parent): GrammarCheckBackend(parent), nam(0), connectionAvailability(Unknown), triedToStart(false), firstRequest(true)
+GrammarCheckLanguageToolJSON::GrammarCheckLanguageToolJSON(QObject *parent): GrammarCheckBackend(parent), nam(nullptr), connectionAvailability(Unknown), triedToStart(false), firstRequest(true),startTime(0)
 {
 
 }
@@ -969,7 +970,7 @@ void GrammarCheckLanguageToolJSON::shutdown()
     connectionAvailability = Terminated;
     if (nam) {
         nam->deleteLater();
-        nam = 0;
+        nam = nullptr;
     }
 }
 /*!
@@ -1003,7 +1004,7 @@ void GrammarCheckLanguageToolJSON::finished(QNetworkReply *nreply)
         if (connectionAvailability == Broken) {
             if (delayedRequests.size()) delayedRequests.clear();
             nam->deleteLater(); // shutdown unnecessary network manager (Bug 1717/1738)
-            nam = 0;
+            nam = nullptr;
             return; //confirmed: no backend
         }
         //there might be a backend now, but we still don't have the results

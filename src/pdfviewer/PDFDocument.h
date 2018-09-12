@@ -268,7 +268,7 @@ private:
 	void annotationClicked(QSharedPointer<Poppler::Annotation> annotation, int page);
 	void doZoom(const QPoint &clickPos, int dir, qreal newScaleFactor = 1.0);
 
-	PDFScrollArea *getScrollArea();
+	PDFScrollArea *getScrollArea() const;
 
 	QSharedPointer<Poppler::Document> document;
 	QMutex textwidthCalculationMutex;
@@ -397,6 +397,7 @@ public:
 	const PDFWidget *widget() const { return pdfWidget; }
 
 	bool followCursor() const;
+	bool ignoreSynchronization() const;
 	PDFRenderManager *renderManager;
 
 	static bool isCompiling, isMaybeCompiling;
@@ -596,7 +597,7 @@ private:
     QAction *actionGrid33;
     QAction *actionCustom;
     QAction *actionSinglePageStep;
-    QAction *actionSynchronize_multiple_views;
+    QAction *actionSynchronize_multiple_views, *actionNoSynchronization;
     QAction *actionPresentation;
     QAction *actionContinuous;
     QAction *action_Print;

@@ -58,13 +58,13 @@ protected:
 
 TexstudioApp::TexstudioApp(int &argc, char **argv) : QtSingleApplication(argc, argv)
 {
-	mw = 0;
+    mw = nullptr;
 	initialized = false;
 }
 
 TexstudioApp::TexstudioApp(QString &id, int &argc, char **argv) : QtSingleApplication(id, argc, argv)
 {
-	mw = 0;
+    mw = nullptr;
 	initialized = false;
 }
 
@@ -75,7 +75,7 @@ void TexstudioApp::init(QStringList &cmdLine)
 	splash->show();
 	processEvents();
 
-	mw = new Texstudio(0, 0, splash);
+    mw = new Texstudio(nullptr, nullptr, splash);
 	connect(this, SIGNAL(lastWindowClosed()), this, SLOT(quit()));
 	splash->finish(mw);
 	delete splash;

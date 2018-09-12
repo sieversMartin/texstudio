@@ -34,7 +34,7 @@ class ConfigManager: public QObject, public ConfigManagerInterface
 	Q_OBJECT
 
 public:
-	ConfigManager(QObject *parent = 0);
+    ConfigManager(QObject *parent = nullptr);
 	~ConfigManager();
 
 	QString iniPath();
@@ -201,7 +201,7 @@ public:
 	bool scanInstalledLatexPackages;
 
 	// input unicode instead of latex command from symbolgrid (if available)
-	bool insertUTF;
+	bool insertSymbolsAsUnicode;
 
 	//menus
     QObjectList menuParents;
@@ -231,6 +231,7 @@ public:
 
 	static QString configDirOverride;
     static bool dontRestoreSession;
+    static int RUNAWAYLIMIT;
 private:
 	void setupDirectoryStructure();
 	void moveCwls();

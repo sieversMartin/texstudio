@@ -70,7 +70,7 @@ QStringList findHistory, replaceHistory;
 	\brief Constructor
 */
 QSearchReplacePanel::QSearchReplacePanel(QWidget *p)
-	: QPanel(p),m_search(0),m_lastDirection(false),useLineForSearch(false),searchOnlyInSelection(false)
+    : QPanel(p),m_search(nullptr),m_lastDirection(false),useLineForSearch(false),searchOnlyInSelection(false)
 {
 	setObjectName("searchPanel");
 	
@@ -79,7 +79,7 @@ QSearchReplacePanel::QSearchReplacePanel(QWidget *p)
 	// do it completely programatic
     //this->resize(801, 21);
     QVBoxLayout *vboxLayout=new QVBoxLayout(this);
-    QWidget *searchWidget=new QWidget(0);
+    QWidget *searchWidget=new QWidget(nullptr);
     //searchWidget->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
     vboxLayout->addWidget(searchWidget);
     FlowLayoutX *flowLayout=new FlowLayoutX(searchWidget,1,1,1);
@@ -305,6 +305,7 @@ QSearchReplacePanel::QSearchReplacePanel(QWidget *p)
     flowLayout2->addWidget(cbEscapeSeq);
 
     lReplacementText = new QLabel(this);
+    lReplacementText->setTextFormat(Qt::PlainText);
     lReplacementText->setMinimumHeight(buttonSize.height());
     int numButtonSpread = 5;
     int lReplacementSize = numButtonSpread * buttonSize.width() + (numButtonSpread-1) * flowLayout2->horizontalSpacing();
@@ -354,9 +355,8 @@ QSearchReplacePanel::QSearchReplacePanel(QWidget *p)
 */
 QSearchReplacePanel::~QSearchReplacePanel()
 {
-	if ( m_search )
-		delete m_search;
-	m_search=0;
+    delete m_search;
+    m_search=nullptr;
 }
 
 /*!
@@ -486,7 +486,7 @@ void QSearchReplacePanel::display(int mode, bool replace)
 			cReplace->lineEdit()->selectAll();
 		}
 		//show();
-	}else closeEvent(0);
+    }else closeEvent(nullptr);
 		
 	setVisible(visible);
 
@@ -639,7 +639,7 @@ void QSearchReplacePanel::find(QString text, bool backward, bool highlight, bool
 	if (!isVisible()) display(1,false);
 	if (m_search && m_search->searchText()!=text) {
 		delete m_search;
-		m_search=0;
+        m_search=nullptr;
 	}
 	//if (!m_search) editor()->setCursorPosition(0,0); ??
 	if(!m_search) init();
@@ -1026,7 +1026,7 @@ void QSearchReplacePanel::init()
 	if ( m_search )
 	{
 		delete m_search;
-		m_search = 0;
+        m_search = nullptr;
 	}
 
 	QDocumentSearch::Options opt;

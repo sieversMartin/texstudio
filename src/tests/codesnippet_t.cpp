@@ -10,7 +10,7 @@
 //placeholder position
 class CP{
 public:
-	CP(): ay(-1){}
+    CP(): ay(-1), ax(-1), cy(-1), cx(-1) {}
 	CP(int line, int cursor):ay(line), ax(cursor), cy(line), cx(cursor){}
 	CP(int line, int cursor, const QList<CP>& mir):ay(line), ax(cursor), cy(line), cx(cursor), mirrors(mir){}
 	CP(int line, int anchor, int cursor):ay(line), ax(anchor), cy(line), cx(cursor){}
@@ -42,7 +42,7 @@ Q_DECLARE_METATYPE(CP);
 Q_DECLARE_METATYPE(QList<CP>);
 
 
-CodeSnippetTest::CodeSnippetTest(QEditor* editor): QObject(0), 	ed(editor){
+CodeSnippetTest::CodeSnippetTest(QEditor* editor): QObject(nullptr), 	ed(editor){
 	ed->document()->setLineEnding(QDocument::Unix); //necessary to compare with "\n" separated lines
 }
 

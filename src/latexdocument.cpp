@@ -23,7 +23,7 @@ const QSet<QString> LatexDocument::LATEX_LIKE_LANGUAGES = QSet<QString>() << "(L
  * sets up structure for structure view
  * starts the syntax checker in a separate thread
  */
-LatexDocument::LatexDocument(QObject *parent): QDocument(parent), remeberAutoReload(false), mayHaveDiffMarkers(false), edView(0), mAppendixLine(0), mBeyondEnd(0)
+LatexDocument::LatexDocument(QObject *parent): QDocument(parent), remeberAutoReload(false), mayHaveDiffMarkers(false), edView(nullptr), mAppendixLine(nullptr), mBeyondEnd(nullptr)
 {
 	baseStructure = new StructureEntry(this, StructureEntry::SE_DOCUMENT_ROOT);
 	magicCommentList = new StructureEntry(this, StructureEntry::SE_OVERVIEW);
@@ -41,8 +41,8 @@ LatexDocument::LatexDocument(QObject *parent): QDocument(parent), remeberAutoRel
 	mBibItem.clear();
 	mUserCommandList.clear();
 	mMentionedBibTeXFiles.clear();
-	masterDocument = 0;
-	this->parent = 0;
+    masterDocument = nullptr;
+    this->parent = nullptr;
 
 	unclosedEnv.id = -1;
 	syntaxChecking = true;
@@ -80,11 +80,11 @@ void LatexDocument::setFileName(const QString &fileName)
 	//clear all references to old editor
 	if (this->edView) {
 		StructureEntryIterator iter(baseStructure);
-		while (iter.hasNext()) iter.next()->setLine(0);
+        while (iter.hasNext()) iter.next()->setLine(nullptr);
 	}
 
 	this->setFileNameInternal(fileName);
-	this->edView = 0;
+    this->edView = nullptr;
 }
 
 void LatexDocument::setEditorView(LatexEditorView *edView)
@@ -192,7 +192,7 @@ class LatexStructureMerger{
 public:
 	LatexStructureMerger (LatexDocument* document, int maxDepth):
 		document(document), parent_level(maxDepth){
-	};
+    }
 
 protected:
 	LatexDocument* document;
@@ -206,7 +206,7 @@ class LatexStructureMergerMerge: public LatexStructureMerger{
 public:
 	LatexStructureMergerMerge (LatexDocument* document, int maxDepth, int linenr, int count):
 		LatexStructureMerger(document, maxDepth), linenr(linenr), count(count){
-	};
+    }
 	void operator ()(QList<StructureEntry *> &flatStructure){
 		this->flatStructure = &flatStructure;
 		parent_level.fill(document->baseStructure);
@@ -233,11 +233,11 @@ void LatexDocument::initClearStructure()
 	mRefItem.clear();
 	mMentionedBibTeXFiles.clear();
 
-	mAppendixLine = 0;
-	mBeyondEnd = 0;
+    mAppendixLine = nullptr;
+    mBeyondEnd = nullptr;
 
 
-	emit structureUpdated(this, 0);
+    emit structureUpdated(this, nullptr);
 
 	const int CATCOUNT = 5;
 	StructureEntry *categories[CATCOUNT] = {magicCommentList, labelList, todoList, bibTeXList, blockList};
@@ -313,8 +313,8 @@ void LatexDocument::patchStructureRemoval(QDocumentLineHandle *dlh)
 	mUsepackageList.remove(dlh);
 
 	if (dlh == mAppendixLine) {
-		updateContext(mAppendixLine, 0, StructureEntry::InAppendix);
-		mAppendixLine = 0;
+        updateContext(mAppendixLine, nullptr, StructureEntry::InAppendix);
+        mAppendixLine = nullptr;
 	}
 
 	int linenr = indexOf(dlh);
@@ -350,7 +350,7 @@ void LatexDocument::patchStructureRemoval(QDocumentLineHandle *dlh)
 	LatexStructureMergerMerge(this, LatexParser::getInstance().structureDepth(), linenr, 1)(tmp);
 
 	// rehighlight current cursor position
-	StructureEntry *newSection = 0;
+    StructureEntry *newSection = nullptr;
 	if (edView) {
 		int i = edView->editor->cursor().lineNumber();
 		if (i >= 0) {
@@ -638,7 +638,7 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 		}
 		if (line(i).handle() == mAppendixLine && curLine != "\\appendix") {
 			oldLine = mAppendixLine;
-			mAppendixLine = 0;
+            mAppendixLine = nullptr;
 		}
 		/// \end{document} keyword
 		/// don't add section in structure view after passing \end{document} , this command must not contains spaces nor any additions in the same line
@@ -649,7 +649,7 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 		}
 		if (line(i).handle() == mBeyondEnd && curLine != "\\end{document}") {
 			oldLineBeyond = mBeyondEnd;
-			mBeyondEnd = 0;
+            mBeyondEnd = nullptr;
 		}
 
 		for (int j = 0; j < tl.length(); j++) {
@@ -736,8 +736,9 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 			Token tkCmd;
 			TokenList args;
 			QString cmd;
-			int cmdStart = Parsing::findCommandWithArgsFromTL(tl, tkCmd, args, j, parent->showCommentedElementsInStructure);
+            int cmdStart = Parsing::findCommandWithArgsFromTL(tl, tkCmd, args, j, parent->showCommentedElementsInStructure);
 			if (cmdStart < 0) break;
+            cmdStart=tkCmd.start; // from here, cmdStart is line column position of command
 			cmd = curLine.mid(tkCmd.start, tkCmd.length);
 
 			QString firstArg = Parsing::getArg(args, dlh, 0, ArgumentList::Mandatory);
@@ -747,6 +748,7 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 				completerNeedsUpdate = true;
 				//Tokens cmdName;
 				QString cmdName = Parsing::getArg(args, Token::def);
+                cmdName.replace("@","@@"); // special treatment for commandnames containing @
 				bool isDefWidth = true;
 				if (cmdName.isEmpty())
 					cmdName = Parsing::getArg(args, Token::defWidth);
@@ -762,15 +764,18 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 				if (!removedUserCommands.removeAll(cmdName)) {
 					addedUserCommands << cmdName;
 				}
-
+                QString cmdNameWithoutOptional=cmdName;
 				for (int j = 0; j < optionCount; j++) {
 					if (j == 0) {
-						if (!def)
+                        if (!def){
 							cmdName.append("{%<arg1%|%>}");
-						else
+                            cmdNameWithoutOptional.append("{%<arg1%|%>}");
+                        } else
 							cmdName.append("[%<opt. arg1%|%>]");
-					} else
+                    } else {
 						cmdName.append(QString("{%<arg%1%>}").arg(j + 1));
+                        cmdNameWithoutOptional.append(QString("{%<arg%1%>}").arg(j + 1));
+                    }
 				}
 				CodeSnippet cs(cmdName);
                 cs.index = qHash(cmdName);
@@ -778,6 +783,14 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 				if (isDefWidth)
 					cs.type = CodeSnippet::length;
 				mUserCommandList.insert(line(i).handle(), cs);
+                if(def){ // optional argument, add version without that argument as well
+                    CodeSnippet cs(cmdNameWithoutOptional);
+                    cs.index = qHash(cmdNameWithoutOptional);
+                    cs.snippetLength = cmdNameWithoutOptional.length();
+                    if (isDefWidth)
+                        cs.type = CodeSnippet::length;
+                    mUserCommandList.insert(line(i).handle(), cs);
+                }
 				// remove obsolete Overlays (maybe this can be refined
 				//updateSyntaxCheck=true;
 				continue;
@@ -1072,7 +1085,8 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 				StructureEntry *newSection = new StructureEntry(this, StructureEntry::SE_SECTION);
 				if (mAppendixLine && indexOf(mAppendixLine) < i) newSection->setContext(StructureEntry::InAppendix);
 				if (mBeyondEnd && indexOf(mBeyondEnd) < i) newSection->setContext(StructureEntry::BeyondEnd);
-				QString firstOptArg = Parsing::getArg(args, dlh, 0, ArgumentList::Optional);
+                //QString firstOptArg = Parsing::getArg(args, dlh, 0, ArgumentList::Optional);
+                QString firstOptArg = Parsing::getArg(args, Token::shorttitle);
 				if (!firstOptArg.isEmpty() && firstOptArg != "[]") // workaround, actually getArg should return "" for "[]"
 					firstArg = firstOptArg;
                 if(cmd=="\\begin"){
@@ -1133,7 +1147,7 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 		if (syntaxChecking && languageIsLatexLike()) {
 			StackEnvironment env;
 			getEnv(i, env);
-			QDocumentLineHandle *lastHandle = 0;
+            QDocumentLineHandle *lastHandle = nullptr;
 			TokenStack oldRemainder;
 			if (i > 0) {
 				lastHandle = line(i - 1).handle();
@@ -1153,7 +1167,7 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 
 		for (int i = categories.size() - 1; i >= 0; i--) {
 			StructureEntry *cat = categories[i];
-			if (cat->children.isEmpty() == (cat->parent == 0)) continue;
+            if (cat->children.isEmpty() == (cat->parent == nullptr)) continue;
 			if (cat->children.isEmpty()) removeElementWithSignal(cat);
 			else insertElementWithSignal(baseStructure, 0, cat);
 		}
@@ -1168,7 +1182,7 @@ bool LatexDocument::patchStructure(int linenr, int count, bool recheck)
 		}
 
 		// rehighlight current cursor position
-		StructureEntry *newSection = 0;
+        StructureEntry *newSection = nullptr;
 		if (edView) {
 			int i = edView->editor->cursor().lineNumber();
 			if (i >= 0) {
@@ -1258,22 +1272,22 @@ void LatexDocument::checkForLeak()
 StructureEntry *LatexDocument::findSectionForLine(int currentLine)
 {
 	StructureEntryIterator iter(baseStructure);
-	StructureEntry *newSection = 0;
+    StructureEntry *newSection = nullptr;
 
 	while (/*iter.hasNext()*/true) {
-		StructureEntry *curSection = 0;
+        StructureEntry *curSection = nullptr;
 		while (iter.hasNext()) {
 			curSection = iter.next();
 			if (curSection->type == StructureEntry::SE_SECTION)
 				break;
 		}
-		if (curSection == 0 || curSection->type != StructureEntry::SE_SECTION)
+        if (curSection == nullptr || curSection->type != StructureEntry::SE_SECTION)
 			break;
 
 		if (curSection->getRealLineNumber() > currentLine) break; //curSection is after newSection where the cursor is
 		else newSection = curSection;
 	}
-	if (newSection && newSection->getRealLineNumber() > currentLine) newSection = 0;
+    if (newSection && newSection->getRealLineNumber() > currentLine) newSection = nullptr;
 
 	return newSection;
 }
@@ -1632,7 +1646,7 @@ void LatexDocument::updateRefsLabels(const QString &ref)
 
 
 
-LatexDocuments::LatexDocuments(): model(new LatexDocumentsModel(*this)), masterDocument(0), currentDocument(0), bibTeXFilesModified(false)
+LatexDocuments::LatexDocuments(): model(new LatexDocumentsModel(*this)), masterDocument(nullptr), currentDocument(nullptr), bibTeXFilesModified(false)
 {
 	showLineNumbersInStructure = false;
 	indentationInStructure = -1;
@@ -1683,7 +1697,7 @@ void LatexDocuments::addDocument(LatexDocument *document, bool hidden)
 		}
 	}
 	if (!hidden)
-		model->structureUpdated(document, 0);
+        model->structureUpdated(document, nullptr);
 }
 
 void LatexDocuments::deleteDocument(LatexDocument *document, bool hidden, bool purge)
@@ -1712,7 +1726,7 @@ void LatexDocuments::deleteDocument(LatexDocument *document, bool hidden, bool p
 					if (elem->isHidden())
 						deleteDocument(elem, true, true);
 					else
-						elem->setMasterDocument(0);
+                        elem->setMasterDocument(nullptr);
 				}
 			}
 			delete document;
@@ -1782,7 +1796,7 @@ void LatexDocuments::deleteDocument(LatexDocument *document, bool hidden, bool p
 		}
 		documents.removeAll(document);
 		if (document == currentDocument) {
-			currentDocument = 0;
+            currentDocument = nullptr;
 		}
 		if (row >= 0 ) { //&& !model->getSingleDocMode()){
 			model->removeElementFinished();
@@ -1792,7 +1806,7 @@ void LatexDocuments::deleteDocument(LatexDocument *document, bool hidden, bool p
 			hideDocInEditor(document->getEditorView());
 			return;
 		}
-		if (view) delete view;
+        delete view;
 		delete document;
 	} else {
 		if (hidden) {
@@ -1802,9 +1816,9 @@ void LatexDocuments::deleteDocument(LatexDocument *document, bool hidden, bool p
 		document->setFileName(document->getFileName());
 		model->resetAll();
 		document->clearAppendix();
-		if (view) delete view;
+        delete view;
 		if (document == currentDocument)
-			currentDocument = 0;
+            currentDocument = nullptr;
 	}
 }
 
@@ -1818,17 +1832,17 @@ void LatexDocuments::requestedClose()
 void LatexDocuments::setMasterDocument(LatexDocument *document)
 {
 	if (document == masterDocument) return;
-	if (masterDocument != 0 && masterDocument->getEditorView() == 0) {
+    if (masterDocument != nullptr && masterDocument->getEditorView() == nullptr) {
 		QString fn = masterDocument->getFileName();
 		addDocToLoad(fn);
 		LatexDocument *doc = masterDocument;
-		masterDocument = 0;
+        masterDocument = nullptr;
 		deleteDocument(doc);
 		//documents.removeAll(masterDocument);
 		//delete masterDocument;
 	}
 	masterDocument = document;
-	if (masterDocument != 0) {
+    if (masterDocument != nullptr) {
 		documents.removeAll(masterDocument);
 		documents.prepend(masterDocument);
 		// repaint doc
@@ -1925,7 +1939,7 @@ LatexDocument *LatexDocuments::findDocumentFromName(const QString &fileName) con
 	foreach (LatexDocument *doc, docs) {
 		if (doc->getFileName() == fileName) return doc;
 	}
-	return 0;
+    return nullptr;
 }
 
 /*!
@@ -1952,12 +1966,12 @@ LatexDocument *LatexDocuments::findDocument(const QDocument *qDoc) const
 		LatexEditorView *edView = doc->getEditorView();
 		if (edView && edView->editor->document() == qDoc) return doc;
 	}
-	return 0;
+    return nullptr;
 }
 
 LatexDocument *LatexDocuments::findDocument(const QString &fileName, bool checkTemporaryNames) const
 {
-	if (fileName == "") return 0;
+    if (fileName == "") return nullptr;
 	if (checkTemporaryNames) {
 		LatexDocument *temp = findDocument(fileName, false);
 		if (temp) return temp;
@@ -1996,7 +2010,7 @@ LatexDocument *LatexDocuments::findDocument(const QString &fileName, bool checkT
 		}
 	}
 
-	return 0;
+    return nullptr;
 }
 
 void LatexDocuments::settingsRead()
@@ -2074,7 +2088,7 @@ void LatexDocuments::removeDocs(QStringList removeIncludes)
 		}
 		if (dc && dc->isHidden()) {
 			QStringList toremove = dc->includedFiles();
-			dc->setMasterDocument(0);
+            dc->setMasterDocument(nullptr);
 			hiddenDocuments.removeAll(dc);
 			//qDebug()<<fname;
 			delete dc->getEditorView();
@@ -2212,7 +2226,7 @@ void LatexDocument::removeElementWithSignal(StructureEntry *se)
 	REQUIRE(parentRow >= 0);
 	emit removeElement(se, parentRow);
 	se->parent->children.removeAt(parentRow);
-	se->parent = 0;
+    se->parent = nullptr;
 	emit removeElementFinished();
 }
 
@@ -2265,7 +2279,7 @@ public:
 void LatexStructureMerger::moveToAppropiatePositionWithSignal(StructureEntry *se)
 {
 	REQUIRE(se);
-	StructureEntry *newParent = parent_level.value(se->level, 0);
+    StructureEntry *newParent = parent_level.value(se->level, nullptr);
 	if (!newParent) {
 		qDebug("structure update failed!");
 		return;
@@ -2277,7 +2291,6 @@ void LatexStructureMerger::moveToAppropiatePositionWithSignal(StructureEntry *se
 		//se is already at the correct position regarding line numbers.
 		//but not necessarily regarding the column position
 		oldPos = se->getRealParentRow();
-		newPos = oldPos;
 		if ((oldPos == 0 || compare(newParent->children[oldPos - 1], se )) &&
 				(oldPos == newParent->children.size() - 1 || compare(se, newParent->children[oldPos + 1] ))
 			)
@@ -2506,7 +2519,7 @@ void LatexDocuments::updateStructure()
 		model->updateElement(doc->baseStructure);
 	}
 	if (model->getSingleDocMode()) {
-		model->structureUpdated(currentDocument, 0);
+        model->structureUpdated(currentDocument, nullptr);
 	}
 }
 
@@ -2519,11 +2532,11 @@ void LatexDocuments::updateMasterSlaveRelations(LatexDocument *doc, bool recheck
 {
 	//update Master/Child relations
 	//remove old settings ...
-	doc->setMasterDocument(0, false);
+    doc->setMasterDocument(nullptr, false);
 	QList<LatexDocument *> docs = getDocuments();
 	foreach (LatexDocument *elem, docs) {
 		if (elem->getMasterDocument() == doc) {
-			elem->setMasterDocument(0, recheckRefs);
+            elem->setMasterDocument(nullptr, recheckRefs);
 			doc->removeChild(elem);
 			//elem->recheckRefsLabels();
 		}
@@ -2595,7 +2608,7 @@ const LatexDocument *LatexDocument::getRootDocument(QSet<const LatexDocument *> 
 
 LatexDocument *LatexDocument::getRootDocument()
 {
-	return const_cast<LatexDocument *>(getRootDocument(0));
+    return const_cast<LatexDocument *>(getRootDocument(nullptr));
 }
 
 QStringList LatexDocument::includedFiles()
@@ -2811,7 +2824,7 @@ StructureEntry *LatexDocument::getMagicCommentEntry(const QString &name) const
 	QString seName;
 	QString val;
 
-	if (!magicCommentList) return NULL;
+    if (!magicCommentList) return nullptr;
 
 	StructureEntryIterator iter(magicCommentList);
 	while (iter.hasNext()) {
@@ -2819,7 +2832,7 @@ StructureEntry *LatexDocument::getMagicCommentEntry(const QString &name) const
 		splitMagicComment(se->title, seName, val);
 		if (seName == name) return se;
 	}
-	return NULL;
+    return nullptr;
 }
 
 /*!
@@ -2830,7 +2843,7 @@ void LatexDocument::updateMagicComment(const QString &name, const QString &val, 
     QString line(QString("% %1 %2 = %3").arg(prefix).arg(name).arg(val));
 
 	StructureEntry *se = getMagicCommentEntry(name);
-	QDocumentLineHandle *dlh = se ? se->getLineHandle() : NULL;
+    QDocumentLineHandle *dlh = se ? se->getLineHandle() : nullptr;
 	if (dlh) {
 		QString n, v;
 		splitMagicComment(se->title, n, v);
@@ -3051,7 +3064,7 @@ void LatexDocument::updateSettings()
 
 void LatexDocument::checkNextLine(QDocumentLineHandle *dlh, bool clearOverlay, int ticket)
 {
-	Q_ASSERT_X(dlh != 0, "checkNextLine", "empty dlh used in checkNextLine");
+    Q_ASSERT_X(dlh != nullptr, "checkNextLine", "empty dlh used in checkNextLine");
 	if (dlh->getRef() > 1 && dlh->getCurrentTicket() == ticket) {
 		StackEnvironment env;
 		QVariant envVar = dlh->getCookieLocked(QDocumentLine::STACK_ENVIRONMENT_COOKIE);

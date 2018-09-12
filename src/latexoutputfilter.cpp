@@ -745,6 +745,7 @@ bool LatexOutputFilter::detectError(const QString &strLine, short &dwCookie)
 		} else {
 			dwCookie = LineNumber;
 		}
+        break; // was probably forgotten
 	case LineNumber :
 		//KILE_DEBUG() << "\tLineNumber " << endl;
 		if (reLineNumber.indexIn(strLine) != -1) {
@@ -838,6 +839,7 @@ bool LatexOutputFilter::detectWarning(const QString &strLine, short &dwCookie)
 			break;
 		}
 		// no break,
+        [[gnu::fallthrough]];
 	case Latex3Warning:
 		if (!strLine.startsWith('*') || strLine.startsWith("****************************************")) {
 			found = false;

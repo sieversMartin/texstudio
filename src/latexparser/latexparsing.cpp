@@ -2,6 +2,7 @@
 #include "qdocumentline_p.h"
 #include "qdocument.h"
 #include "latexparser/latexparser.h"
+#include "configmanager.h"
 
 /*!
  * This is the new Token-based parser.
@@ -10,7 +11,7 @@
 namespace Parsing {
 
 
-const int RUNAWAYLIMIT = 30; // limit lines to process multi-line arguments in order to prevent processing to the end of document if the argument is unclosed
+//const int RUNAWAYLIMIT = 30; // limit lines to process multi-line arguments in order to prevent processing to the end of document if the argument is unclosed
 
 
 /*!
@@ -241,7 +242,7 @@ bool latexDetermineContexts2(QDocumentLineHandle *dlh, TokenStack &stack, Comman
             if(tk.type==Token::openBrace){
                 tk.subtype=Token::definition;
                 tk.level = level; // push old level on stack in order to restore that level later and to distinguish between arguments and arbitrary braces
-                tk.argLevel = RUNAWAYLIMIT; // run-away prevention
+                tk.argLevel = ConfigManager::RUNAWAYLIMIT; // run-away prevention
                 stack.push(tk);
                 tk.level++;
                 lexed << tk;
@@ -326,6 +327,7 @@ bool latexDetermineContexts2(QDocumentLineHandle *dlh, TokenStack &stack, Comman
                             // add [( etc to command
                             Token tk2=tl.at(i + 1);
                             if(Token::tkOpen().contains(tk2.type)||Token::tkClose().contains(tk2.type)){
+                                tk.optionalCommandName=command;
                                 command.append(line.mid(tk2.start, 1));
                                 tk.length++;
                                 i++;
@@ -380,7 +382,7 @@ bool latexDetermineContexts2(QDocumentLineHandle *dlh, TokenStack &stack, Comman
                 }
 
                 tk.level = level; // push old level on stack in order to restore that level later and to distinguish between arguments and arbitrary braces
-                tk.argLevel = RUNAWAYLIMIT; // run-away prevention
+                tk.argLevel = ConfigManager::RUNAWAYLIMIT; // run-away prevention
                 stack.push(tk);
                 tk.level++;
                 lexed << tk;
@@ -389,7 +391,7 @@ bool latexDetermineContexts2(QDocumentLineHandle *dlh, TokenStack &stack, Comman
                 if(tk.type==Token::openBrace){ // check braces within arguments, not brackets/squareBrackets
                     //level++; // not an argument
                     tk.level = level;
-                    tk.argLevel = RUNAWAYLIMIT; // run-away prevention, needs to be >0 as otherwise closing barces are misinterpreted
+                    tk.argLevel = ConfigManager::RUNAWAYLIMIT; // run-away prevention, needs to be >0 as otherwise closing barces are misinterpreted
                     if (!stack.isEmpty()) {
                         tk.subtype = stack.top().subtype;
                     }
@@ -435,6 +437,7 @@ bool latexDetermineContexts2(QDocumentLineHandle *dlh, TokenStack &stack, Comman
                     int j = lexed.length() - 1;
                     while (j >= 0 && lexed.at(j).start > tk1.start)
                         j--;
+                    bool forceContinue=false;
                     if (j >= 0 && lexed.at(j).start == tk1.start) {
                         if (Token::tkSingleArg().contains(tk1.subtype) || tk1.subtype >= Token::specialArg) { // all special args are assumed single word arguments
                             // join all args for intended single word argument
@@ -462,11 +465,12 @@ bool latexDetermineContexts2(QDocumentLineHandle *dlh, TokenStack &stack, Comman
                                     stack.push(tk3);
                                 } else { // only care for further arguments if not in verbatim mode (see minted)
                                     CommandDescription cd = lp.commandDefs.value("\\begin{" + env + "}", CommandDescription());
-                                    if (cd.args > 1) {
+                                    if ((cd.args > 1)||(cd.args==1 && cd.optionalArgs>0)) {
                                         cd.args--;
                                         cd.argTypes.takeFirst();
                                         cd.optionalCommandName="\\begin{" + env + "}";
                                         commandStack.push(cd);
+                                        forceContinue=true;
                                     }
                                 }
                             }
@@ -477,6 +481,10 @@ bool latexDetermineContexts2(QDocumentLineHandle *dlh, TokenStack &stack, Comman
                         // remove commands from commandstack with higher level, as they can't have any valid arguments anymore
                         while (!commandStack.isEmpty() && commandStack.top().level > level) {
                             commandStack.pop();
+                        }
+                        if(forceContinue){
+                            forceContinue=false;
+                            continue;
                         }
                     } else { // opening not found, whyever (should not happen)
                         //level--;
@@ -761,9 +769,7 @@ int findCommandWithArgsFromTL(const TokenList &tl, Token &cmd, TokenList &args, 
 
 QString getArg(const TokenList &tl, Token::TokenType type)
 {
-    for (int i = 0; i < tl.length(); i++) {
-        Token tk = tl.at(i);
-
+    foreach (Token tk, tl) {
         if (tk.subtype==type) {
             QString result;
             QString line=tk.getText();
@@ -771,7 +777,7 @@ QString getArg(const TokenList &tl, Token::TokenType type)
                 result = line.mid(1, line.length() - 2);
             }
             if (Token::tkOpen().contains(tk.type)) {
-                result = line.mid( 1) + findRestArg(tk.dlh, Token::opposite(tk.type), RUNAWAYLIMIT);
+                result = line.mid( 1) + findRestArg(tk.dlh, Token::opposite(tk.type), ConfigManager::RUNAWAYLIMIT);
             }
             if (Token::tkClose().contains(tk.type)) {
                 result = line.left(line.length()-1);
@@ -803,7 +809,7 @@ QString getArg(TokenList tl, QDocumentLineHandle *dlh, int argNumber, ArgumentLi
 	static const QSet<Token::TokenType> tokensForMandatoryBraceArg = QSet<Token::TokenType>() << Token::braces;
 	static const QSet<Token::TokenType> tokensForOptionalArg = QSet<Token::TokenType>() << Token::squareBracket << Token::openSquare;
 
-	const QSet<Token::TokenType> *searchTokens = 0;
+    const QSet<Token::TokenType> *searchTokens = nullptr;
 
 	if (type == ArgumentList::Mandatory) {
 		searchTokens = &tokensForMandatoryArg;
@@ -821,10 +827,9 @@ QString getArg(TokenList tl, QDocumentLineHandle *dlh, int argNumber, ArgumentLi
     if(!tl.isEmpty()){
         level=tl.first().level;
     }
-    while( (lineNr)<doc->lineCount() && cnt<RUNAWAYLIMIT){
+    while( (lineNr)<doc->lineCount() && cnt<ConfigManager::RUNAWAYLIMIT){
         QString line = dlh->text();
-        for (int i = 0; i < tl.length(); i++) {
-            Token tk = tl.at(i);
+        foreach (Token tk,tl) {
             if(tk.level>level)
                 continue; //only use tokens from the same option-level
 
@@ -843,7 +848,7 @@ QString getArg(TokenList tl, QDocumentLineHandle *dlh, int argNumber, ArgumentLi
                             // line break acts as space in latex
                             result=line.mid(tk.innerStart(), tk.innerLength())+" ";
                         }
-                        result.append(findRestArg(dlh, Token::opposite(tk.type), RUNAWAYLIMIT));
+                        result.append(findRestArg(dlh, Token::opposite(tk.type), ConfigManager::RUNAWAYLIMIT));
                     }else{
                         result = line.mid(tk.innerStart(), tk.innerLength());
                     }

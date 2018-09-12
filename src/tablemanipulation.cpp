@@ -143,7 +143,6 @@ void LatexTables::addColumn(QDocument *doc, const int lineNumber, const int afte
 			do {
 				result = findNextToken(cur, nTokens);
 			} while (result == 1);
-			breakLoop = (result < 0); // end of tabular reached (eof or \end)
 			if (result < 1) break; //end of tabular line reached
 		}
 		if (result == -1) break;
@@ -967,7 +966,7 @@ LatexTableLine *LatexTableModel::parseNextLine(const QString &text, int &startCo
 			int endOpt = findClosingBracket(text, endCol, '[', ']');
 			if (endOpt < 0) {
 				UtilsUi::txsWarning("Could not parse table code: Missing closing bracket: \\[");
-				return 0;
+                return nullptr;
 			}
             lineBreakOption += text.mid(startOpt, endOpt - startOpt + 1).trimmed();
 			endCol = endOpt + 1;
@@ -998,8 +997,9 @@ LatexTableLine *LatexTableModel::parseNextLine(const QString &text, int &startCo
 	if (!lineBreakOption.isEmpty()) ltl->setLineBreakOption(lineBreakOption);
 
     startCol = endCol;
-    if(startCol<0)
+    if(startCol<0){
         startCol=text.length();
+    }
 
 	return ltl;
 }

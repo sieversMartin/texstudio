@@ -250,7 +250,7 @@ private:
 	int minimum_width;
 	//QToolButton *bClose;
 	QLineEdit *leFind;
-	QToolButton *bNext, *bPrevious, *bCount;
+    QToolButton *bNext, *bPrevious;
 	QCheckBox *cbCase;
 	/*QCheckBox *cbWords;
 	QCheckBox *cbRegExp;*/
@@ -279,7 +279,7 @@ class PDFScrollArea : public QAbstractScrollArea
 	Q_OBJECT
 
 public:
-	explicit PDFScrollArea(QWidget *parent = NULL);
+    explicit PDFScrollArea(QWidget *parent = nullptr);
 	virtual ~PDFScrollArea();
 	void setPDFWidget(PDFWidget *widget);
 	void ensureVisible(int x, int y, int xmargin = 50, int ymargin = 50);

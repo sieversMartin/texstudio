@@ -58,6 +58,8 @@ TRANSLATIONS += translation/texstudio_ar.ts \
     translation/texstudio_hu.ts \
     translation/texstudio_it.ts \
     translation/texstudio_ja.ts \
+    translation/texstudio_ko.ts \
+    translation/texstudio_ko_KR.ts \
     translation/texstudio_nl.ts \
     translation/texstudio_pl.ts \
     translation/texstudio_pt_BR.ts \
@@ -134,6 +136,8 @@ unix {
         translation/texstudio_hu.qm \
         translation/texstudio_it.qm \
         translation/texstudio_ja.qm \
+        translation/texstudio_ko.qm \
+        translation/texstudio_ko_KR.qm \
         translation/texstudio_nl.qm \
         translation/texstudio_pl.qm \
         translation/texstudio_pt_BR.qm \
@@ -267,6 +271,7 @@ isEmpty(USE_SYSTEM_HUNSPELL){
   DEFINES += HUNSPELL_STATIC
   include(src/hunspell/hunspell.pri)
 } else {
+  message(System hunspell)
   CONFIG += link_pkgconfig
   PKGCONFIG += hunspell
 }
@@ -281,9 +286,15 @@ isEmpty(USE_SYSTEM_QUAZIP) {
   DEFINES += QUAZIP_STATIC
   include(src/quazip/quazip/quazip.pri)
 } else {
-  isEmpty(QUAZIP_LIB): QUAZIP_LIB = -lquazip
-  isEmpty(QUAZIP_INCLUDE): QUAZIP_INCLUDE = $${PREFIX}/include/quazip
-
+  greaterThan(QT_MAJOR_VERSION, 4) { #Qt5
+    message(System quazip5)
+    isEmpty(QUAZIP_LIB): QUAZIP_LIB = -lquazip5
+    isEmpty(QUAZIP_INCLUDE): QUAZIP_INCLUDE = $${PREFIX}/include/quazip5
+  } else { #Qt4
+    message(System quazip)
+    isEmpty(QUAZIP_LIB): QUAZIP_LIB = -lquazip
+    isEmpty(QUAZIP_INCLUDE): QUAZIP_INCLUDE = $${PREFIX}/include/quazip
+  }
   INCLUDEPATH += $${QUAZIP_INCLUDE}
   LIBS += $${QUAZIP_LIB}
 }

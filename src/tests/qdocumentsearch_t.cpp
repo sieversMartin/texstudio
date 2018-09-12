@@ -7,17 +7,17 @@
 #include "qeditor.h"
 #include "testutil.h"
 #include <QtTest/QtTest>
-QDocumentSearchTest::QDocumentSearchTest(QEditor* editor, bool all): QObject(0), ed(editor), all(all){
+QDocumentSearchTest::QDocumentSearchTest(QEditor* editor, bool all): QObject(nullptr), ds(nullptr), ed(editor), all(all){
 	ed->setFlag(QEditor::HardLineWrap, false);
 }
 void QDocumentSearchTest::initTestCase(){
-	ds=new QDocumentSearch(ed,"",0);
+    ds=new QDocumentSearch(ed,"",nullptr);
 	ed->document()->setLineEnding(QDocument::Unix); //necessary to compare with "\n" separated lines
 }
 //cursor movement
 class CM{
 public:
-	CM(): l(-1){}
+    CM(): dir(false),rep(false),l(-1),ax(-1),cx(-1){}
 	CM(bool adir, int line, int anchorOffset, int cursorOffset,const QString &replaceText,const QString& newText):
 		dir(adir),rep(replaceText!="\1"),l(line),ax(anchorOffset),cx(cursorOffset),rt(replaceText),nt(newText){
 	}

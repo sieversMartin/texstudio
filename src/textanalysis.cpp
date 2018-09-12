@@ -88,7 +88,7 @@ void TextAnalysisModel::updateAll()
 
 
 TextAnalysisDialog::TextAnalysisDialog(QWidget *parent,  QString name)
-	: QDialog(parent), document(0), editor(0), alreadyCount(false), lastSentenceLength(-1), lastMinSentenceLength(-1), lastParsedMinWordLength(-1)
+    : QDialog(parent), document(nullptr), editor(nullptr), alreadyCount(false), lastSentenceLength(-1), lastMinSentenceLength(-1), lastParsedMinWordLength(-1)
 {
 	setWindowTitle(name);
 	setAttribute(Qt::WA_DeleteOnClose);
@@ -113,16 +113,16 @@ TextAnalysisDialog::~TextAnalysisDialog()
 
 void TextAnalysisDialog::setEditor(QEditor *aeditor)
 {
-	if (editor) disconnect(editor, 0, this, 0);
+    if (editor) disconnect(editor, nullptr, this, nullptr);
 	if (aeditor) {
 		editor = aeditor;
 		document = aeditor->document();
 		cursor = aeditor->cursor();
 		connect(editor, SIGNAL(destroyed()), this, SLOT(editorDestroyed()));
 	} else {
-		document = 0;
-		cursor = 0;
-		editor = 0;
+        document = nullptr;
+        cursor = nullptr;
+        editor = nullptr;
 	}
 }
 
@@ -373,6 +373,7 @@ void TextAnalysisDialog::insertDisplayData(const QMap<QString, int> &map)
 		break;
 	case 1:
 		minLen = ui.minimumLengthSpin->value(); //no break!
+        [[gnu::fallthrough]];
 	default:
 		if (filtered) {
 			for (QMap<QString, int>::const_iterator it = map.constBegin(); it != map.constEnd(); ++it)
@@ -397,7 +398,7 @@ void TextAnalysisDialog::slotCount()
 
 	displayed.updateAll();
 
-	ui.resultView->setModel(NULL);
+    ui.resultView->setModel(nullptr);
 	ui.resultView->setModel(&displayed);
 
 	ui.resultView->setShowGrid(false);
@@ -414,7 +415,7 @@ void TextAnalysisDialog::slotCount()
 
 void TextAnalysisDialog::editorDestroyed()
 {
-	setEditor(0);
+    setEditor(nullptr);
 }
 
 void TextAnalysisDialog::slotSelectionButton()
